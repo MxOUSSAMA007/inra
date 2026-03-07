@@ -18,6 +18,7 @@ The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. I
 - [x] Cow registration system — name each cow (e.g. "1", "Maria") and save records
 - [x] Records history view — per-cow history with last vs current comparison
 - [x] Excel export — download all records or per-cow history as .xlsx
+- [x] Multi-language support — Arabic / French / English with live language switcher button
 
 ## Current Structure
 

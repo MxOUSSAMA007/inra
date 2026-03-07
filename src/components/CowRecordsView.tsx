@@ -8,12 +8,14 @@ import {
   type CowRecord,
 } from "@/lib/cow-records";
 import { exportRecordsToExcel, exportCowHistoryToExcel } from "@/lib/excel-export";
+import { useLanguage } from "@/lib/language-context";
 
 interface Props {
   onClose: () => void;
 }
 
 export default function CowRecordsView({ onClose }: Props) {
+  const { t, dir } = useLanguage();
   const [records, setRecords] = useState<CowRecord[]>(() => getAllRecords());
   const [selectedCow, setSelectedCow] = useState<string | "all">("all");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -64,22 +66,25 @@ export default function CowRecordsView({ onClose }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-950 via-emerald-900 to-teal-900 flex flex-col items-center justify-start py-10 px-4">
+    <div
+      dir={dir}
+      className="min-h-screen bg-gradient-to-br from-green-950 via-emerald-900 to-teal-900 flex flex-col items-center justify-start py-10 px-4"
+    >
       {/* Header */}
       <div className="w-full max-w-4xl mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-3xl">📋</span>
             <div>
-              <h1 className="text-2xl font-bold text-white">سجلات الأبقار</h1>
-              <p className="text-emerald-300 text-sm">متابعة الاحتياجات الغذائية لكل بقرة</p>
+              <h1 className="text-2xl font-bold text-white">{t.cowRecordsTitle}</h1>
+              <p className="text-emerald-300 text-sm">{t.cowRecordsSubtitle}</p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl transition flex items-center gap-2 text-sm font-medium"
           >
-            ← العودة للحاسبة
+            {t.backToCalculator}
           </button>
         </div>
       </div>
@@ -96,7 +101,7 @@ export default function CowRecordsView({ onClose }: Props) {
                 : "bg-white/10 text-white/70 hover:bg-white/20"
             }`}
           >
-            🐄 الكل ({records.length})
+            {t.allCows(records.length)}
           </button>
           {cowNames.map((name) => {
             const count = records.filter((r) => r.cowName === name).length;
@@ -123,7 +128,7 @@ export default function CowRecordsView({ onClose }: Props) {
             disabled={records.length === 0}
             className="bg-green-600 hover:bg-green-500 disabled:bg-white/10 disabled:text-white/30 text-white px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2"
           >
-            📥 تحميل Excel
+            {t.downloadExcel}
             {selectedCow !== "all" && ` (${selectedCow})`}
           </button>
           {selectedCow !== "all" && (
@@ -132,7 +137,7 @@ export default function CowRecordsView({ onClose }: Props) {
               disabled={records.length === 0}
               className="bg-teal-600 hover:bg-teal-500 disabled:bg-white/10 disabled:text-white/30 text-white px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2"
             >
-              📥 تحميل الكل
+              {t.downloadAll}
             </button>
           )}
         </div>
@@ -142,15 +147,15 @@ export default function CowRecordsView({ onClose }: Props) {
       {records.length === 0 && (
         <div className="w-full max-w-4xl bg-white/10 border border-white/20 rounded-2xl p-12 text-center">
           <div className="text-5xl mb-4">🐄</div>
-          <h2 className="text-xl font-bold text-white mb-2">لا توجد سجلات بعد</h2>
+          <h2 className="text-xl font-bold text-white mb-2">{t.noRecords}</h2>
           <p className="text-emerald-300 text-sm">
-            قم بحساب الحصة الغذائية لبقرة وحفظها لتظهر هنا
+            {t.noRecordsSubtitle}
           </p>
           <button
             onClick={onClose}
             className="mt-6 bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-3 rounded-xl font-semibold transition"
           >
-            ابدأ الحساب
+            {t.startCalculation}
           </button>
         </div>
       )}
@@ -186,22 +191,22 @@ export default function CowRecordsView({ onClose }: Props) {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-emerald-950 border border-white/20 rounded-2xl p-6 max-w-sm w-full text-center">
             <div className="text-3xl mb-3">🗑️</div>
-            <h3 className="text-white font-bold text-lg mb-2">حذف السجل؟</h3>
+            <h3 className="text-white font-bold text-lg mb-2">{t.deleteRecord}</h3>
             <p className="text-emerald-300 text-sm mb-6">
-              هذا الإجراء لا يمكن التراجع عنه
+              {t.deleteConfirm}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmDelete(null)}
                 className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl font-medium transition"
               >
-                إلغاء
+                {t.cancel}
               </button>
               <button
                 onClick={() => handleDelete(confirmDelete)}
                 className="flex-1 bg-red-500 hover:bg-red-400 text-white py-2.5 rounded-xl font-medium transition"
               >
-                حذف
+                {t.delete}
               </button>
             </div>
           </div>
@@ -226,6 +231,7 @@ function CowGroup({
   onSelectCow: () => void;
   expanded?: boolean;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(expanded);
   const latest = records[0];
   const previous = records[1] ?? null;
@@ -245,7 +251,7 @@ function CowGroup({
           <div className="text-left">
             <div className="text-white font-bold text-lg">{name}</div>
             <div className="text-emerald-300 text-xs">
-              {records.length} سجل · آخر تسجيل: {formatDate(latest.date)}
+              {t.recordCount(records.length)} · {t.lastRecord} {formatDate(latest.date)}
             </div>
           </div>
         </div>
@@ -261,7 +267,7 @@ function CowGroup({
               )}
             </div>
             <div className="text-white font-mono text-sm">
-              🧬 {latest.pdiTotal} غ PDI
+              🧬 {latest.pdiTotal} {t.gUnit} PDI
               {pdiDiff !== null && (
                 <span className={`ml-2 text-xs ${pdiDiff > 0 ? "text-red-400" : pdiDiff < 0 ? "text-green-400" : "text-white/40"}`}>
                   {pdiDiff > 0 ? "▲" : pdiDiff < 0 ? "▼" : "="}{Math.abs(pdiDiff).toFixed(0)}
@@ -277,7 +283,7 @@ function CowGroup({
       {previous && (
         <div className="px-5 pb-3 grid grid-cols-2 gap-3">
           <CompareCard
-            label="الشهر الماضي"
+            label={t.lastMonth}
             date={formatDate(previous.date)}
             ufl={previous.uflTotal}
             pdi={previous.pdiTotal}
@@ -285,7 +291,7 @@ function CowGroup({
             dim
           />
           <CompareCard
-            label="الآن"
+            label={t.now}
             date={formatDate(latest.date)}
             ufl={latest.uflTotal}
             pdi={latest.pdiTotal}
@@ -299,7 +305,7 @@ function CowGroup({
       {open && (
         <div className="border-t border-white/10">
           <div className="px-5 py-3 text-xs text-white/40 uppercase tracking-wider font-semibold">
-            جميع السجلات
+            {t.allRecords}
           </div>
           <div className="divide-y divide-white/5">
             {records.map((rec, idx) => (
@@ -325,6 +331,7 @@ function CompareCard({
   label: string; date: string; ufl: number; pdi: number; milk: number;
   dim?: boolean; highlight?: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <div className={`rounded-xl p-3 border ${
       highlight
@@ -337,16 +344,16 @@ function CompareCard({
       <div className="text-white/40 text-xs mb-2">{date}</div>
       <div className="space-y-1">
         <div className="flex justify-between text-xs">
-          <span className="text-white/60">⚡ طاقة</span>
+          <span className="text-white/60">{t.energy}</span>
           <span className="text-white font-mono font-medium">{ufl.toFixed(2)} UFL</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-white/60">🧬 بروتين</span>
-          <span className="text-white font-mono font-medium">{pdi} غ</span>
+          <span className="text-white/60">{t.protein}</span>
+          <span className="text-white font-mono font-medium">{pdi} {t.gUnit}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-white/60">🥛 حليب</span>
-          <span className="text-white font-mono font-medium">{milk} ل</span>
+          <span className="text-white/60">{t.milk}</span>
+          <span className="text-white font-mono font-medium">{milk} {t.lUnit}</span>
         </div>
       </div>
     </div>
@@ -360,6 +367,7 @@ function RecordRow({
 }: {
   record: CowRecord; isLatest: boolean; onDelete: () => void;
 }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -368,20 +376,20 @@ function RecordRow({
         <div className="flex items-center gap-3">
           {isLatest && (
             <span className="bg-emerald-500/30 text-emerald-300 text-xs px-2 py-0.5 rounded-full font-medium">
-              الأحدث
+              {t.latest}
             </span>
           )}
           <span className="text-white/60 text-sm">{formatDate(record.date)}</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-white font-mono text-sm">
-            ⚡ {record.uflTotal.toFixed(2)} · 🧬 {record.pdiTotal}غ
+            ⚡ {record.uflTotal.toFixed(2)} · 🧬 {record.pdiTotal}{t.gUnit}
           </span>
           <button
             onClick={() => setExpanded((e) => !e)}
             className="text-white/40 hover:text-white/80 text-xs transition"
           >
-            {expanded ? "إخفاء" : "تفاصيل"}
+            {expanded ? t.hide : t.details}
           </button>
           <button
             onClick={onDelete}
@@ -394,21 +402,27 @@ function RecordRow({
 
       {expanded && (
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-          <DetailItem label="الوزن" value={`${record.inputs.weight} كغ`} />
-          <DetailItem label="الحالة" value={record.inputs.status === "lactating" ? "في الإدرار" : "جافة"} />
-          <DetailItem label="الإيواء" value={record.inputs.housingType === "stall" ? "حظيرة" : "مرعى"} />
+          <DetailItem label={t.weightDetail} value={`${record.inputs.weight} ${t.kg}`} />
+          <DetailItem
+            label={t.statusDetail}
+            value={record.inputs.status === "lactating" ? t.lactatingStatus : t.dryStatus}
+          />
+          <DetailItem
+            label={t.housingDetail}
+            value={record.inputs.housingType === "stall" ? t.stallHousing : t.pastureHousing}
+          />
           {record.inputs.milkProduction ? (
-            <DetailItem label="الحليب" value={`${record.inputs.milkProduction} ل/يوم`} />
+            <DetailItem label={t.milkDetail} value={`${record.inputs.milkProduction} ${t.lPerDay}`} />
           ) : null}
           {record.inputs.milkFatPercent ? (
-            <DetailItem label="نسبة الدهن" value={`${record.inputs.milkFatPercent.toFixed(1)}%`} />
+            <DetailItem label={t.fatDetail} value={`${record.inputs.milkFatPercent.toFixed(1)}%`} />
           ) : null}
           {(record.inputs.gestationMonth ?? 0) > 0 ? (
-            <DetailItem label="شهر الحمل" value={`الشهر ${record.inputs.gestationMonth}`} />
+            <DetailItem label={t.gestationDetail} value={t.gestationMonthLabel(record.inputs.gestationMonth ?? 0)} />
           ) : null}
-          <DetailItem label="طاقة الصيانة" value={`${record.uflMaintenance.toFixed(2)} UFL`} />
-          <DetailItem label="طاقة الإنتاج" value={`${record.uflProduction.toFixed(2)} UFL`} />
-          <DetailItem label="بروتين الإنتاج" value={`${record.pdiProduction} غ`} />
+          <DetailItem label={t.maintenanceEnergy} value={`${record.uflMaintenance.toFixed(2)} UFL`} />
+          <DetailItem label={t.productionEnergy} value={`${record.uflProduction.toFixed(2)} UFL`} />
+          <DetailItem label={t.productionProtein} value={`${record.pdiProduction} ${t.gUnit}`} />
         </div>
       )}
     </div>
