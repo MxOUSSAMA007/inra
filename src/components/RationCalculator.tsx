@@ -9,7 +9,9 @@ import {
   type HousingType,
   type CalculationResult,
 } from "@/lib/inra-calculator";
+import { getAllRecords } from "@/lib/cow-records";
 import ResultsPanel from "./ResultsPanel";
+import CowRecordsView from "./CowRecordsView";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -18,6 +20,11 @@ const TOTAL_STEPS = 3;
 export default function RationCalculator() {
   const [step, setStep] = useState<Step>(1);
   const [result, setResult] = useState<CalculationResult | null>(null);
+  const [showRecords, setShowRecords] = useState(false);
+  const [recordsRefreshKey, setRecordsRefreshKey] = useState(0);
+
+  // Cow name
+  const [cowName, setCowName] = useState<string>("");
 
   // Form state
   const [weight, setWeight] = useState<string>("600");
@@ -27,6 +34,8 @@ export default function RationCalculator() {
   const [gestationMonth, setGestationMonth] = useState<string>("0");
   const [milkProduction, setMilkProduction] = useState<string>("20");
   const [milkFatPercent, setMilkFatPercent] = useState<string>("4.0");
+
+  const totalRecords = getAllRecords().length;
 
   function handleCalculate() {
     const inputs: CowInputs = {
@@ -45,22 +54,52 @@ export default function RationCalculator() {
   function handleReset() {
     setStep(1);
     setResult(null);
+    setCowName("");
+  }
+
+  function handleRecordSaved() {
+    setRecordsRefreshKey((k) => k + 1);
   }
 
   const progressPercent = step < 4 ? ((step - 1) / TOTAL_STEPS) * 100 : 100;
 
+  if (showRecords) {
+    return (
+      <CowRecordsView
+        key={recordsRefreshKey}
+        onClose={() => setShowRecords(false)}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-950 via-emerald-900 to-teal-900 flex flex-col items-center justify-start py-10 px-4">
       {/* Header */}
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-3 mb-3">
-          <span className="text-4xl">🐄</span>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            INRA Ration Calculator
-          </h1>
+      <div className="text-center mb-8 w-full max-w-xl">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex-1" />
+          <div className="inline-flex items-center gap-3">
+            <span className="text-4xl">🐄</span>
+            <h1 className="text-3xl font-bold text-white tracking-tight">
+              حاسبة INRA
+            </h1>
+          </div>
+          <div className="flex-1 flex justify-end">
+            <button
+              onClick={() => setShowRecords(true)}
+              className="relative bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl transition flex items-center gap-2 text-sm font-medium"
+            >
+              📋 السجلات
+              {totalRecords > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {totalRecords > 99 ? "99+" : totalRecords}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
         <p className="text-emerald-300 text-sm max-w-md mx-auto">
-          Calcul des besoins nutritionnels des vaches laitières selon le système INRA
+          حساب الاحتياجات الغذائية للأبقار الحلوب وفق نظام INRA
         </p>
       </div>
 
@@ -70,7 +109,7 @@ export default function RationCalculator() {
         {step < 4 && (
           <div className="px-6 pt-5">
             <div className="flex justify-between text-xs text-emerald-300 mb-1">
-              <span>Étape {step} / {TOTAL_STEPS}</span>
+              <span>الخطوة {step} / {TOTAL_STEPS}</span>
               <span>{Math.round(progressPercent)}%</span>
             </div>
             <div className="w-full bg-white/10 rounded-full h-1.5">
@@ -83,9 +122,11 @@ export default function RationCalculator() {
         )}
 
         <div className="p-6">
-          {/* Step 1: Animal Info */}
+          {/* Step 1: Animal Info + Cow Name */}
           {step === 1 && (
             <StepOne
+              cowName={cowName}
+              setCowName={setCowName}
               weight={weight}
               setWeight={setWeight}
               parity={parity}
@@ -123,13 +164,18 @@ export default function RationCalculator() {
 
           {/* Step 4: Results */}
           {step === 4 && result && (
-            <ResultsPanel result={result} onReset={handleReset} />
+            <ResultsPanel
+              result={result}
+              cowName={cowName}
+              onReset={handleReset}
+              onRecordSaved={handleRecordSaved}
+            />
           )}
         </div>
       </div>
 
       <p className="mt-6 text-emerald-500 text-xs text-center">
-        Basé sur les normes INRA 2018 · Pour usage indicatif
+        مبني على معايير INRA 2018 · للاستخدام الاسترشادي
       </p>
     </div>
   );
@@ -138,11 +184,13 @@ export default function RationCalculator() {
 /* ─── Step 1 ─────────────────────────────────────────────────────────────── */
 
 function StepOne({
+  cowName, setCowName,
   weight, setWeight,
   parity, setParity,
   housingType, setHousingType,
   onNext,
 }: {
+  cowName: string; setCowName: (v: string) => void;
   weight: string; setWeight: (v: string) => void;
   parity: ParityType; setParity: (v: ParityType) => void;
   housingType: HousingType; setHousingType: (v: HousingType) => void;
@@ -153,16 +201,31 @@ function StepOne({
   return (
     <div className="space-y-6">
       <StepHeader
-        icon="⚖️"
-        title="Informations de l'animal"
-        subtitle="Entrez le poids et le profil de la vache"
+        icon="🐄"
+        title="بيانات البقرة"
+        subtitle="أدخل اسم البقرة ومعلوماتها الأساسية"
       />
 
       <div className="space-y-4">
+        {/* Cow Name */}
+        <div>
+          <label className="block text-sm font-medium text-emerald-200 mb-1.5">
+            اسم البقرة
+            <span className="ml-2 text-emerald-400 font-normal text-xs">(مثال: 1، ماريا، نجمة...)</span>
+          </label>
+          <input
+            type="text"
+            value={cowName}
+            onChange={(e) => setCowName(e.target.value)}
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+            placeholder="أدخل اسم أو رقم البقرة"
+          />
+        </div>
+
         {/* Weight */}
         <div>
           <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-            Poids vif (kg)
+            الوزن الحي (كغ)
           </label>
           <input
             type="number"
@@ -171,29 +234,29 @@ function StepOne({
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
-            placeholder="ex: 600"
+            placeholder="مثال: 600"
           />
         </div>
 
         {/* Parity */}
         <div>
           <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-            Parité
+            الولادة
           </label>
           <div className="grid grid-cols-2 gap-3">
             <OptionCard
               selected={parity === "primiparous"}
               onClick={() => setParity("primiparous")}
               icon="🐄"
-              title="Primipare"
-              subtitle="1ère lactation"
+              title="بكر"
+              subtitle="أول ولادة"
             />
             <OptionCard
               selected={parity === "multiparous"}
               onClick={() => setParity("multiparous")}
               icon="🐄🐄"
-              title="Multipare"
-              subtitle="2ème lactation+"
+              title="متعددة"
+              subtitle="ثاني ولادة فأكثر"
             />
           </div>
         </div>
@@ -201,22 +264,22 @@ function StepOne({
         {/* Housing */}
         <div>
           <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-            Mode d&apos;élevage
+            نوع الإيواء
           </label>
           <div className="grid grid-cols-2 gap-3">
             <OptionCard
               selected={housingType === "stall"}
               onClick={() => setHousingType("stall")}
               icon="🏠"
-              title="Stabulation"
-              subtitle="En bâtiment"
+              title="حظيرة"
+              subtitle="داخل المبنى"
             />
             <OptionCard
               selected={housingType === "pasture"}
               onClick={() => setHousingType("pasture")}
               icon="🌿"
-              title="Pâturage"
-              subtitle="+10% énergie"
+              title="مرعى"
+              subtitle="+10% طاقة"
             />
           </div>
         </div>
@@ -227,7 +290,7 @@ function StepOne({
         disabled={!isValid}
         className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-white/10 disabled:text-white/30 text-white font-semibold py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
       >
-        Suivant <span>→</span>
+        التالي →
       </button>
     </div>
   );
@@ -250,30 +313,30 @@ function StepTwo({
     <div className="space-y-6">
       <StepHeader
         icon="🔬"
-        title="État physiologique"
-        subtitle="Situation actuelle de la vache"
+        title="الحالة الفسيولوجية"
+        subtitle="الوضع الحالي للبقرة"
       />
 
       <div className="space-y-4">
         {/* Status */}
         <div>
           <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-            Phase de production
+            مرحلة الإنتاج
           </label>
           <div className="grid grid-cols-2 gap-3">
             <OptionCard
               selected={status === "lactating"}
               onClick={() => setStatus("lactating")}
               icon="🥛"
-              title="En lactation"
-              subtitle="Produit du lait"
+              title="في الإدرار"
+              subtitle="تنتج حليباً"
             />
             <OptionCard
               selected={status === "dry"}
               onClick={() => setStatus("dry")}
               icon="💤"
-              title="Tarie"
-              subtitle="Période sèche"
+              title="جافة"
+              subtitle="فترة التجفيف"
             />
           </div>
         </div>
@@ -281,9 +344,9 @@ function StepTwo({
         {/* Gestation month */}
         <div>
           <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-            Mois de gestation
+            شهر الحمل
             <span className="ml-2 text-emerald-400 font-normal">
-              (0 = non gestante)
+              (0 = غير حامل)
             </span>
           </label>
           <div className="flex items-center gap-4">
@@ -301,8 +364,8 @@ function StepTwo({
           </div>
           {month >= 7 && (
             <div className="mt-2 bg-amber-500/20 border border-amber-400/30 rounded-lg px-3 py-2 text-amber-300 text-xs">
-              ⚠️ Dernier trimestre — besoins de gestation significatifs (+
-              {month >= 9 ? "2.5" : month >= 8 ? "1.5" : "0.8"} UFL/jour)
+              ⚠️ الثلث الأخير من الحمل — احتياجات حمل مرتفعة (+
+              {month >= 9 ? "2.5" : month >= 8 ? "1.5" : "0.8"} UFL/يوم)
             </div>
           )}
         </div>
@@ -313,13 +376,13 @@ function StepTwo({
           onClick={onBack}
           className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-xl transition-all duration-200"
         >
-          ← Retour
+          ← رجوع
         </button>
         <button
           onClick={onNext}
           className="flex-2 flex-grow bg-emerald-500 hover:bg-emerald-400 text-white font-semibold py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
         >
-          Suivant →
+          التالي →
         </button>
       </div>
     </div>
@@ -345,22 +408,22 @@ function StepThree({
     <div className="space-y-6">
       <StepHeader
         icon="🥛"
-        title="Production laitière"
-        subtitle={isDry ? "Vache tarie — pas de production laitière" : "Entrez les données de production"}
+        title="إنتاج الحليب"
+        subtitle={isDry ? "البقرة جافة — لا إنتاج حليب" : "أدخل بيانات الإنتاج"}
       />
 
       {isDry ? (
         <div className="bg-blue-500/20 border border-blue-400/30 rounded-xl p-4 text-blue-200 text-sm text-center">
           <p className="text-2xl mb-2">💤</p>
-          <p>La vache est en période de tarissement.</p>
-          <p className="mt-1 text-blue-300">Les besoins de production laitière ne seront pas calculés.</p>
+          <p>البقرة في فترة التجفيف.</p>
+          <p className="mt-1 text-blue-300">لن يتم احتساب احتياجات إنتاج الحليب.</p>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Milk production */}
           <div>
             <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-              Production laitière (litres/jour)
+              إنتاج الحليب (لتر/يوم)
             </label>
             <input
               type="number"
@@ -370,14 +433,14 @@ function StepThree({
               value={milkProduction}
               onChange={(e) => setMilkProduction(e.target.value)}
               className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
-              placeholder="ex: 20"
+              placeholder="مثال: 20"
             />
           </div>
 
           {/* Fat percent */}
           <div>
             <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-              Taux butyreux (% matière grasse)
+              نسبة الدهن (%)
             </label>
             <div className="flex items-center gap-4">
               <input
@@ -394,7 +457,7 @@ function StepThree({
               </span>
             </div>
             <p className="text-xs text-emerald-400 mt-1">
-              Référence standard : 4.0% (lait normalisé)
+              المعيار القياسي: 4.0% (حليب معياري)
             </p>
           </div>
         </div>
@@ -405,13 +468,13 @@ function StepThree({
           onClick={onBack}
           className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-xl transition-all duration-200"
         >
-          ← Retour
+          ← رجوع
         </button>
         <button
           onClick={onCalculate}
           className="flex-2 flex-grow bg-emerald-500 hover:bg-emerald-400 text-white font-semibold py-3 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
         >
-          🧮 Calculer
+          🧮 احسب
         </button>
       </div>
     </div>
