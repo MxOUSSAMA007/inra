@@ -21,6 +21,7 @@ The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. I
 - [x] Multi-language support — Arabic / French / English with live language switcher button
 - [x] Fix hydration error — `totalRecords` badge now uses `useState(0)` + `useEffect` with `Promise.resolve` to avoid SSR/client mismatch
 - [x] Fix Excel export — replaced `XLSX.writeFile` with manual Blob + `<a>` download for reliable browser support
+- [x] Feed ration recommendation — new section in results showing kg/day of hay, barley, straw, grass, etc. needed to meet UFL/PDI targets; farmer selects available feeds from a checklist; translations in AR/FR/EN
 
 ## Current Structure
 
