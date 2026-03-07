@@ -19,6 +19,8 @@ The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. I
 - [x] Records history view — per-cow history with last vs current comparison
 - [x] Excel export — download all records or per-cow history as .xlsx
 - [x] Multi-language support — Arabic / French / English with live language switcher button
+- [x] Fix hydration error — `totalRecords` badge now uses `useState(0)` + `useEffect` with `Promise.resolve` to avoid SSR/client mismatch
+- [x] Fix Excel export — replaced `XLSX.writeFile` with manual Blob + `<a>` download for reliable browser support
 
 ## Current Structure
 
