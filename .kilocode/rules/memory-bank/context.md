@@ -22,6 +22,7 @@ The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. I
 - [x] Fix hydration error — `totalRecords` badge now uses `useState(0)` + `useEffect` with `Promise.resolve` to avoid SSR/client mismatch
 - [x] Fix Excel export — replaced `XLSX.writeFile` with manual Blob + `<a>` download for reliable browser support
 - [x] Feed ration recommendation — new section in results showing kg/day of hay, barley, straw, grass, etc. needed to meet UFL/PDI targets; farmer selects available feeds from a checklist; translations in AR/FR/EN
+- [x] Fix concentrate blending — algorithm now treats multiple concentrates as a blended mix using weighted average; shows blend as single entry (e.g., 'شعير + ذرة + صوجا') matching real farm practice
 
 ## Current Structure
 
@@ -93,3 +94,5 @@ export async function GET() {
 | Date | Changes |
 |------|---------|
 | Initial | Template created with base setup |
+| 2026-03-07 | INRA Ration Calculator with cow records, Excel export, i18n, and feed ration features |
+| 2026-03-07 | Fix concentrate blending algorithm — weighted average for multiple concentrates |
