@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   calculateRation,
   type CowInputs,
@@ -64,7 +64,11 @@ export default function RationCalculator() {
   const [milkProduction, setMilkProduction] = useState<string>("20");
   const [milkFatPercent, setMilkFatPercent] = useState<string>("4.0");
 
-  const totalRecords = getAllRecords().length;
+  const [totalRecords, setTotalRecords] = useState(0);
+  useEffect(() => {
+    // Read from localStorage (client-only) after mount / when records change
+    Promise.resolve(getAllRecords().length).then(setTotalRecords);
+  }, [recordsRefreshKey]);
 
   function handleCalculate() {
     const inputs: CowInputs = {
