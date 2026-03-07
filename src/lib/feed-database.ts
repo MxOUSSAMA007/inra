@@ -11,6 +11,8 @@ export type FeedCategory = "roughage" | "concentrate" | "byproduct";
 
 export interface Feed {
   id: string;
+  /** Display name (for blends) */
+  name?: string;
   /** Dry matter fraction (0–1) */
   dm: number;
   /** UFL per kg of fresh weight */
