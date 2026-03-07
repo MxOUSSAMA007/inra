@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js Template",
-  description: "A minimal Next.js starter template",
+  title: "INRA Ration Calculator — Calculateur de rations bovines",
+  description:
+    "Calculez les besoins nutritionnels (UFL & PDI) de vos vaches laitières selon le système INRA.",
 };
 
 export default function RootLayout({
