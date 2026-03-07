@@ -67,7 +67,7 @@ export function calculateFeedRation(
   const roughagePdiTarget = targetPdi * 0.5; // roughage covers ~50% of PDI
 
   if (roughages.length > 0) {
-    // Distribute evenly among roughages (weighted by UFL density)
+    // Distribute proportionally based on each roughage's UFL contribution
     const totalRoughageUfl = roughages.reduce((s, f) => s + f.uflPerKg, 0);
 
     for (const feed of roughages) {
@@ -93,62 +93,34 @@ export function calculateFeedRation(
   let remainingUfl = targetUfl - roughageUflActual;
   let remainingPdi = targetPdi - roughagePdiActual;
 
-  // ── Step 3: Allocate concentrate BLEND to cover remaining UFL and PDI ─────────
-  // If multiple concentrates selected, treat them as a BLEND (weighted average)
-  // This matches real farm practice: farmer mixes barley+corn+soybean together
+  // ── Step 3: Allocate concentrates to cover remaining UFL and PDI ────────────────
+  // Distribute among concentrates based on their nutritional contribution
   if (concentrates.length > 0 && (remainingUfl > 0 || remainingPdi > 0)) {
-    let concentrateBlend: Feed;
+    // Calculate total UFL and PDI contribution potential from all concentrates
+    const totalConcentrateUfl = concentrates.reduce((s, f) => s + f.uflPerKg, 0);
+    const totalConcentratePdi = concentrates.reduce((s, f) => s + f.pdiPerKg, 0);
 
-    if (concentrates.length === 1) {
-      // Single concentrate — use as-is
-      concentrateBlend = concentrates[0];
-    } else {
-      // Multiple concentrates — create weighted average blend
-      // Equal proportions (e.g., 33% barley + 33% corn + 33% soybean)
-      const n = concentrates.length;
-      const totalUfl = concentrates.reduce((s, f) => s + f.uflPerKg, 0);
-      const totalPdi = concentrates.reduce((s, f) => s + f.pdiPerKg, 0);
+    for (const feed of concentrates) {
+      // Distribute remaining needs proportionally to each concentrate's contribution
+      const share = feed.uflPerKg / totalConcentrateUfl;
+      const uflNeeded = remainingUfl * share;
+      const pdiNeeded = remainingPdi * share;
 
-      // Create blend ID from feed names
-      const blendId = concentrates.map(f => f.id).join(" + ");
-      const blendName = concentrates.map(f => {
-        const nameMap: Record<string, string> = {
-          barley: "شعير",
-          corn_grain: "ذرة",
-          soybean_meal: "صوجا",
-          wheat_bran: "نخالة",
-          sunflower_meal: "كسبة",
-          sugar_beet_pulp: "تفل بنجر",
-        };
-        return nameMap[f.id] || f.id;
-      }).join(" + ");
+      // Calculate kg needed to meet each requirement
+      const kgForUfl = uflNeeded / feed.uflPerKg;
+      const kgForPdi = pdiNeeded / feed.pdiPerKg;
 
-      concentrateBlend = {
-        id: blendId,
-        name: blendName,
-        dm: 0.88,
-        uflPerKg: round2(totalUfl / n),
-        pdiPerKg: Math.round(totalPdi / n),
-        category: "concentrate",
-        maxFraction: 0.4,
-      };
-    }
+      // Use the more limiting factor
+      const kgNeeded = Math.max(kgForUfl, kgForPdi);
 
-    // Calculate how much concentrate blend needed to fill remaining UFL and PDI
-    // Use the more limiting factor (whichever needs more concentrate)
-    const kgForUfl = Math.max(0, remainingUfl / concentrateBlend.uflPerKg);
-    const kgForPdi = Math.max(0, remainingPdi / concentrateBlend.pdiPerKg);
-    
-    // Take the larger — we need enough to satisfy both requirements
-    const kgBlend = Math.max(kgForUfl, kgForPdi);
-
-    if (kgBlend >= 0.1) {
-      amounts.push({
-        feed: concentrateBlend,
-        kgPerDay: round1(kgBlend),
-        uflContrib: round2(kgBlend * concentrateBlend.uflPerKg),
-        pdiContrib: round0(kgBlend * concentrateBlend.pdiPerKg),
-      });
+      if (kgNeeded >= 0.1) {
+        amounts.push({
+          feed,
+          kgPerDay: round1(kgNeeded),
+          uflContrib: round2(kgNeeded * feed.uflPerKg),
+          pdiContrib: round0(kgNeeded * feed.pdiPerKg),
+        });
+      }
     }
   }
 
