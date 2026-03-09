@@ -23,6 +23,10 @@ The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. I
 - [x] Fix Excel export — replaced `XLSX.writeFile` with manual Blob + `<a>` download for reliable browser support
 - [x] Feed ration recommendation — new section in results showing kg/day of hay, barley, straw, grass, etc. needed to meet UFL/PDI targets; farmer selects available feeds from a checklist; translations in AR/FR/EN
 - [x] Fix concentrate blending — algorithm now treats multiple concentrates as a blended mix using weighted average; shows blend as single entry (e.g., 'شعير + ذرة + صوجا') matching real farm practice
+- [x] Add DMI calculation — calculates max dry matter intake (0.025 × weight) and handles constraint by reducing concentrates then roughages
+- [x] Update tolerance to exact values — ±0.2 UFL, ±50g PDI (instead of 5%)
+- [x] Add difference display — shows gap from target UFL/PDI in results
+- [x] Add README.md — documentation in Arabic/French/English for Maghreb farmers
 
 ## Current Structure
 
