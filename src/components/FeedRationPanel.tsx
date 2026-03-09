@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/language-context";
 interface Props {
   targetUfl: number;
   targetPdi: number;
+  cowWeight: number;
 }
 
 const CATEGORY_ORDER: FeedCategory[] = ["roughage", "concentrate", "byproduct"];
@@ -27,7 +28,7 @@ const FEED_ICONS: Record<string, string> = {
   sugar_beet_pulp: "🟤",
 };
 
-export default function FeedRationPanel({ targetUfl, targetPdi }: Props) {
+export default function FeedRationPanel({ targetUfl, targetPdi, cowWeight }: Props) {
   const { t } = useLanguage();
   const [selectedIds, setSelectedIds] = useState<string[]>(DEFAULT_FEED_IDS);
 
@@ -38,8 +39,8 @@ export default function FeedRationPanel({ targetUfl, targetPdi }: Props) {
   }
 
   const ration = useMemo(
-    () => calculateFeedRation(targetUfl, targetPdi, selectedIds),
-    [targetUfl, targetPdi, selectedIds]
+    () => calculateFeedRation(targetUfl, targetPdi, selectedIds, cowWeight),
+    [targetUfl, targetPdi, selectedIds, cowWeight]
   );
 
   // Group feeds by category for the selector
@@ -145,13 +146,20 @@ export default function FeedRationPanel({ targetUfl, targetPdi }: Props) {
               label={t.feedRationTotal}
               ufl={ration.totalUfl}
               pdi={ration.totalPdi}
+              dm={ration.totalDm}
               color="text-white"
             />
             <TotalRow
               label={t.feedRationTarget}
               ufl={ration.targetUfl}
               pdi={ration.targetPdi}
+              dm={ration.dmi}
               color="text-white/50"
+            />
+            {/* Difference row */}
+            <DifferenceRow
+              uflDiff={ration.uflDiff}
+              pdiDiff={ration.pdiDiff}
             />
           </div>
         </div>
@@ -170,11 +178,13 @@ function TotalRow({
   label,
   ufl,
   pdi,
+  dm,
   color,
 }: {
   label: string;
   ufl: number;
   pdi: number;
+  dm?: number;
   color: string;
 }) {
   return (
@@ -182,6 +192,33 @@ function TotalRow({
       <span className="font-semibold">{label}</span>
       <span className="font-mono">
         {ufl.toFixed(2)} UFL · {pdi} g PDI
+        {dm !== undefined && <span className="text-white/40"> · {dm.toFixed(1)} kg MS</span>}
+      </span>
+    </div>
+  );
+}
+
+function DifferenceRow({
+  uflDiff,
+  pdiDiff,
+}: {
+  uflDiff: number;
+  pdiDiff: number;
+}) {
+  const { t } = useLanguage();
+  const uflSign = uflDiff >= 0 ? "+" : "";
+  const pdiSign = pdiDiff >= 0 ? "+" : "";
+  const uflOk = Math.abs(uflDiff) <= 0.2;
+  const pdiOk = Math.abs(pdiDiff) <= 50;
+
+  return (
+    <div className="flex items-center justify-between text-xs pt-1 border-t border-white/5">
+      <span className="font-semibold text-white/40">{t.feedRationDiff}</span>
+      <span className={`font-mono ${uflOk ? "text-emerald-400" : "text-amber-400"}`}>
+        {uflSign}{uflDiff.toFixed(2)} UFL
+      </span>
+      <span className={`font-mono ${pdiOk ? "text-emerald-400" : "text-amber-400"}`}>
+        {pdiSign}{pdiDiff} g PDI
       </span>
     </div>
   );

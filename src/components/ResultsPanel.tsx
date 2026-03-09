@@ -115,7 +115,11 @@ export default function ResultsPanel({ result, cowName, onReset, onRecordSaved }
 
       {/* Feed ration recommendation */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-        <FeedRationPanel targetUfl={ufl.total} targetPdi={pdi.total} />
+        <FeedRationPanel 
+          targetUfl={ufl.total} 
+          targetPdi={pdi.total} 
+          cowWeight={inputs.weight} 
+        />
       </div>
 
       {/* Animal summary */}

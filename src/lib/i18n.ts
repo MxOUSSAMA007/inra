@@ -119,7 +119,9 @@ export const translations: Record<Language, Translations> = {
     feedRationUnbalanced: "⚠️ الحصة غير مكتملة — أضف أعلافاً أخرى",
     feedRationTotal: "الإجمالي المحسوب",
     feedRationTarget: "الهدف",
+    feedRationDiff: "الفرق",
     kgPerDay: "كغ/يوم",
+    dryMatter: "المادة الجافة",
     feedNames: {
       hay: "تبن (قش)",
       straw: "قش حبوب",
@@ -290,7 +292,9 @@ export const translations: Record<Language, Translations> = {
     feedRationUnbalanced: "⚠️ Ration incomplète — ajoutez d'autres aliments",
     feedRationTotal: "Total calculé",
     feedRationTarget: "Objectif",
+    feedRationDiff: "Différence",
     kgPerDay: "kg/j",
+    dryMatter: "Matière sèche",
     feedNames: {
       hay: "Foin",
       straw: "Paille",
@@ -460,7 +464,9 @@ export const translations: Record<Language, Translations> = {
     feedRationUnbalanced: "⚠️ Ration incomplete — add more feeds",
     feedRationTotal: "Calculated total",
     feedRationTarget: "Target",
+    feedRationDiff: "Difference",
     kgPerDay: "kg/day",
+    dryMatter: "Dry matter",
     feedNames: {
       hay: "Hay",
       straw: "Straw",
