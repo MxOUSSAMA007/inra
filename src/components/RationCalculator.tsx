@@ -57,6 +57,7 @@ export default function RationCalculator() {
 
   // Form state
   const [weight, setWeight] = useState<string>("600");
+  const [ageMonths, setAgeMonths] = useState<string>("36");
   const [parity, setParity] = useState<ParityType>("multiparous");
   const [housingType, setHousingType] = useState<HousingType>("stall");
   const [status, setStatus] = useState<PhysiologicalStatus>("lactating");
@@ -73,6 +74,7 @@ export default function RationCalculator() {
   function handleCalculate() {
     const inputs: CowInputs = {
       weight: parseFloat(weight) || 600,
+      ageMonths: parseInt(ageMonths) || 36,
       parity,
       housingType,
       status,
@@ -170,6 +172,8 @@ export default function RationCalculator() {
               setCowName={setCowName}
               weight={weight}
               setWeight={setWeight}
+              ageMonths={ageMonths}
+              setAgeMonths={setAgeMonths}
               parity={parity}
               setParity={setParity}
               housingType={housingType}
@@ -227,12 +231,14 @@ export default function RationCalculator() {
 function StepOne({
   cowName, setCowName,
   weight, setWeight,
+  ageMonths, setAgeMonths,
   parity, setParity,
   housingType, setHousingType,
   onNext,
 }: {
   cowName: string; setCowName: (v: string) => void;
   weight: string; setWeight: (v: string) => void;
+  ageMonths: string; setAgeMonths: (v: string) => void;
   parity: ParityType; setParity: (v: ParityType) => void;
   housingType: HousingType; setHousingType: (v: HousingType) => void;
   onNext: () => void;
@@ -278,6 +284,52 @@ function StepOne({
             className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
             placeholder={t.weightPlaceholder}
           />
+        </div>
+
+        {/* Age */}
+        <div>
+          <label className="block text-sm font-medium text-emerald-200 mb-1.5">
+            {t.ageInMonths}
+          </label>
+          <input
+            type="number"
+            min="6"
+            max="240"
+            value={ageMonths}
+            onChange={(e) => setAgeMonths(e.target.value)}
+            className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
+            placeholder={t.agePlaceholder}
+          />
+        </div>
+
+        {/* Age Category */}
+        <div>
+          <label className="block text-sm font-medium text-emerald-200 mb-1.5">
+            {t.ageCategory}
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            <OptionCard
+              selected={(parseInt(ageMonths) || 0) >= 6 && (parseInt(ageMonths) || 0) < 15}
+              onClick={() => setAgeMonths("10")}
+              icon="🐄"
+              title={t.calf}
+              subtitle={t.calfSubtitle}
+            />
+            <OptionCard
+              selected={(parseInt(ageMonths) || 0) >= 15 && (parseInt(ageMonths) || 0) < 24}
+              onClick={() => setAgeMonths("18")}
+              icon="🐄"
+              title={t.heifer}
+              subtitle={t.heiferSubtitle}
+            />
+            <OptionCard
+              selected={(parseInt(ageMonths) || 0) >= 24}
+              onClick={() => setAgeMonths("36")}
+              icon="🐄🐄"
+              title={t.mature}
+              subtitle={t.matureSubtitle}
+            />
+          </div>
         </div>
 
         {/* Parity */}

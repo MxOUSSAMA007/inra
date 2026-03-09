@@ -8,8 +8,11 @@ export type PhysiologicalStatus = "lactating" | "dry";
 export type ParityType = "primiparous" | "multiparous";
 export type HousingType = "stall" | "pasture";
 
+export type AgeCategory = "calf" | "heifer" | "mature"; // calf: 6-15mo, heifer: 15-24mo, mature: >24mo
+
 export interface CowInputs {
   weight: number; // kg
+  ageMonths: number; // age in months (6+ for weaned calves)
   parity: ParityType;
   status: PhysiologicalStatus;
   // Lactation fields
@@ -70,11 +73,45 @@ function uflActivityBonus(maintenance: number, housing: HousingType): number {
 }
 
 /**
- * UFL for growth (primiparous cows still growing)
- * Primiparous cows need +1.5 UFL/day for body growth
+ * Determine age category based on months
  */
-function uflGrowth(parity: ParityType): number {
-  return parity === "primiparous" ? 1.5 : 0;
+function getAgeCategory(ageMonths: number): AgeCategory {
+  if (ageMonths < 15) return "calf";       // العجول النامية: 6-14 شهر
+  if (ageMonths < 24) return "heifer";     // العجلات الملقحة: 15-23 شهر
+  return "mature";                          // الأبقار البالغة: 24+ شهر
+}
+
+/**
+ * UFL for growth based on age category
+ * - calves (6-15mo): need high energy for rapid growth ~2.5 UFL
+ * - heifers (15-24mo): moderate growth ~1.5 UFL
+ * - mature (24mo+): minimal growth ~0.5 UFL
+ */
+function uflGrowthByAge(ageCategory: AgeCategory, parity: ParityType): number {
+  // For primiparous (first-time mothers), they are still growing
+  if (parity === "primiparous") {
+    switch (ageCategory) {
+      case "calf": return 2.5;    //快速增长
+      case "heifer": return 1.5; //中等增长
+      case "mature": return 0.5; //最小增长
+    }
+  }
+  // For multiparous, no growth needs
+  return 0;
+}
+
+/**
+ * PDI for growth based on age category (g/day)
+ */
+function pdiGrowthByAge(ageCategory: AgeCategory, parity: ParityType): number {
+  if (parity === "primiparous") {
+    switch (ageCategory) {
+      case "calf": return 350;   // high protein for growth
+      case "heifer": return 200; // moderate
+      case "mature": return 50;  // minimal
+    }
+  }
+  return 0;
 }
 
 /**
@@ -109,11 +146,10 @@ function pdiMaintenance(weight: number): number {
 }
 
 /**
- * PDI for growth (primiparous)
- * ~100-120 g/day additional protein for body growth
+ * PDI for growth based on age (primiparous)
  */
-function pdiGrowth(parity: ParityType): number {
-  return parity === "primiparous" ? 110 : 0;
+function pdiGrowth(ageCategory: AgeCategory, parity: ParityType): number {
+  return pdiGrowthByAge(ageCategory, parity);
 }
 
 /**
@@ -141,15 +177,18 @@ function pdiGestation(gestationMonth: number): number {
  * Main calculation function
  */
 export function calculateRation(inputs: CowInputs): CalculationResult {
-  const { weight, parity, status, housingType } = inputs;
+  const { weight, ageMonths, parity, status, housingType } = inputs;
   const milkLiters = inputs.milkProduction ?? 0;
   const fatPercent = inputs.milkFatPercent ?? 4.0;
   const gestationMonth = inputs.gestationMonth ?? 0;
 
+  // Determine age category
+  const ageCategory = getAgeCategory(ageMonths);
+
   // UFL calculations
   const uflMaint = uflMaintenance(weight);
   const uflActivity = uflActivityBonus(uflMaint, housingType);
-  const uflGrowthVal = uflGrowth(parity);
+  const uflGrowthVal = uflGrowthByAge(ageCategory, parity);
   const uflProd = status === "lactating" ? uflProduction(milkLiters, fatPercent) : 0;
   const uflGest = uflGestation(gestationMonth);
 
@@ -157,7 +196,7 @@ export function calculateRation(inputs: CowInputs): CalculationResult {
 
   // PDI calculations
   const pdiMaint = pdiMaintenance(weight);
-  const pdiGrowthVal = pdiGrowth(parity);
+  const pdiGrowthVal = pdiGrowth(ageCategory, parity);
   const pdiProd = status === "lactating" ? pdiProduction(milkLiters, fatPercent) : 0;
   const pdiGest = pdiGestation(gestationMonth);
 
