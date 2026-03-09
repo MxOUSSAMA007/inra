@@ -65,6 +65,32 @@ export default function RationCalculator() {
   const [milkProduction, setMilkProduction] = useState<string>("20");
   const [milkFatPercent, setMilkFatPercent] = useState<string>("4.0");
 
+  // Calculate age category from age in months
+  const ageNum = parseInt(ageMonths) || 0;
+  const isCalf = ageNum >= 6 && ageNum < 15;  // عجل نامي: 6-14 شهر
+  const isHeifer = ageNum >= 15 && ageNum < 24; // عجلة ملقحة: 15-23 شهر
+  const isMature = ageNum >= 24; // بقرة بالغة: 24+ شهر
+
+  // Handler for age change - auto-calculate weight for calves
+  function handleAgeChange(newAge: string) {
+    const newAgeNum = parseInt(newAge) || 0;
+    setAgeMonths(newAge);
+    
+    // Auto-weight calculation for growing calves (6-14 months)
+    // Standard: 6 months ≈ 150kg, 14 months ≈ 350kg
+    if (newAgeNum >= 6 && newAgeNum < 15) {
+      const calculatedWeight = Math.round(150 + (newAgeNum - 6) * 25);
+      setWeight(calculatedWeight.toString());
+    }
+    
+    // Auto-set status to dry for young animals
+    if (newAgeNum >= 6 && newAgeNum < 24) {
+      setStatus("dry"); // العجول والعجلات ليست في إنتاج الحليب
+    } else if (newAgeNum >= 24) {
+      setStatus("lactating"); // mature cows default to lactating
+    }
+  }
+
   const [totalRecords, setTotalRecords] = useState(0);
   useEffect(() => {
     // Read from localStorage (client-only) after mount / when records change
@@ -174,6 +200,7 @@ export default function RationCalculator() {
               setWeight={setWeight}
               ageMonths={ageMonths}
               setAgeMonths={setAgeMonths}
+              handleAgeChange={handleAgeChange}
               parity={parity}
               setParity={setParity}
               housingType={housingType}
@@ -231,7 +258,7 @@ export default function RationCalculator() {
 function StepOne({
   cowName, setCowName,
   weight, setWeight,
-  ageMonths, setAgeMonths,
+  ageMonths, setAgeMonths, handleAgeChange,
   parity, setParity,
   housingType, setHousingType,
   onNext,
@@ -239,12 +266,22 @@ function StepOne({
   cowName: string; setCowName: (v: string) => void;
   weight: string; setWeight: (v: string) => void;
   ageMonths: string; setAgeMonths: (v: string) => void;
+  handleAgeChange: (v: string) => void;
   parity: ParityType; setParity: (v: ParityType) => void;
   housingType: HousingType; setHousingType: (v: HousingType) => void;
   onNext: () => void;
 }) {
   const { t } = useLanguage();
   const isValid = parseFloat(weight) > 0;
+  
+  // Calculate age category
+  const ageNum = parseInt(ageMonths) || 0;
+  const isCalf = ageNum >= 6 && ageNum < 15;  // عجل نامي
+  const isHeifer = ageNum >= 15 && ageNum < 24; // عجلة ملقحة
+  const isMature = ageNum >= 24; // بقرة بالغة
+  
+  // For calves and heifers, parity is not applicable (they are not cows yet)
+  const showParity = isMature;
 
   return (
     <div className="space-y-6">
@@ -296,7 +333,7 @@ function StepOne({
             min="6"
             max="240"
             value={ageMonths}
-            onChange={(e) => setAgeMonths(e.target.value)}
+            onChange={(e) => handleAgeChange(e.target.value)}
             className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent transition"
             placeholder={t.agePlaceholder}
           />
@@ -310,21 +347,21 @@ function StepOne({
           <div className="grid grid-cols-3 gap-2">
             <OptionCard
               selected={(parseInt(ageMonths) || 0) >= 6 && (parseInt(ageMonths) || 0) < 15}
-              onClick={() => setAgeMonths("10")}
+              onClick={() => handleAgeChange("10")}
               icon="🐄"
               title={t.calf}
               subtitle={t.calfSubtitle}
             />
             <OptionCard
               selected={(parseInt(ageMonths) || 0) >= 15 && (parseInt(ageMonths) || 0) < 24}
-              onClick={() => setAgeMonths("18")}
+              onClick={() => handleAgeChange("18")}
               icon="🐄"
               title={t.heifer}
               subtitle={t.heiferSubtitle}
             />
             <OptionCard
               selected={(parseInt(ageMonths) || 0) >= 24}
-              onClick={() => setAgeMonths("36")}
+              onClick={() => handleAgeChange("36")}
               icon="🐄🐄"
               title={t.mature}
               subtitle={t.matureSubtitle}
@@ -332,28 +369,36 @@ function StepOne({
           </div>
         </div>
 
-        {/* Parity */}
-        <div>
-          <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-            {t.parity}
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <OptionCard
-              selected={parity === "primiparous"}
-              onClick={() => setParity("primiparous")}
-              icon="🐄"
-              title={t.primiparous}
-              subtitle={t.primiparousSubtitle}
-            />
-            <OptionCard
-              selected={parity === "multiparous"}
-              onClick={() => setParity("multiparous")}
-              icon="🐄🐄"
-              title={t.multiparous}
-              subtitle={t.multiparousSubtitle}
-            />
+        {/* Parity - only show for mature cows (24+ months) */}
+        {showParity && (
+          <div>
+            <label className="block text-sm font-medium text-emerald-200 mb-1.5">
+              {t.parity}
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <OptionCard
+                selected={parity === "primiparous"}
+                onClick={() => setParity("primiparous")}
+                icon="🐄"
+                title={t.primiparous}
+                subtitle={t.primiparousSubtitle}
+              />
+              <OptionCard
+                selected={parity === "multiparous"}
+                onClick={() => setParity("multiparous")}
+                icon="🐄🐄"
+                title={t.multiparous}
+                subtitle={t.multiparousSubtitle}
+              />
+            </div>
           </div>
-        </div>
+        )}
+        
+        {!showParity && (
+          <div className="bg-blue-500/20 border border-blue-400/30 rounded-xl p-3 text-blue-200 text-sm text-center">
+            <p>{isCalf ? t.youngAnimalNote : t.heiferNote}</p>
+          </div>
+        )}
 
         {/* Housing */}
         <div>
@@ -403,6 +448,7 @@ function StepTwo({
 }) {
   const { t } = useLanguage();
   const month = parseInt(gestationMonth) || 0;
+  const isDry = status === "dry";
 
   return (
     <div className="space-y-6">
@@ -436,35 +482,43 @@ function StepTwo({
           </div>
         </div>
 
-        {/* Gestation month */}
-        <div>
-          <label className="block text-sm font-medium text-emerald-200 mb-1.5">
-            {t.gestationMonth}
-            <span className="mx-2 text-emerald-400 font-normal">
-              {t.notPregnant}
-            </span>
-          </label>
-          <div className="flex items-center gap-4">
-            <input
-              type="range"
-              min="0"
-              max="9"
-              value={gestationMonth}
-              onChange={(e) => setGestationMonth(e.target.value)}
-              className="flex-1 accent-emerald-400"
-            />
-            <span className="text-white font-bold text-lg w-8 text-center">
-              {gestationMonth}
-            </span>
-          </div>
-          {month >= 7 && (
-            <div className="mt-2 bg-amber-500/20 border border-amber-400/30 rounded-lg px-3 py-2 text-amber-300 text-xs">
-              {t.lastTrimesterWarning(
-                month >= 9 ? "2.5" : month >= 8 ? "1.5" : "0.8"
-              )}
+        {/* Gestation month - hide for dry cows */}
+        {!isDry && (
+          <div>
+            <label className="block text-sm font-medium text-emerald-200 mb-1.5">
+              {t.gestationMonth}
+              <span className="mx-2 text-emerald-400 font-normal">
+                {t.notPregnant}
+              </span>
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0"
+                max="9"
+                value={gestationMonth}
+                onChange={(e) => setGestationMonth(e.target.value)}
+                className="flex-1 accent-emerald-400"
+              />
+              <span className="text-white font-bold text-lg w-8 text-center">
+                {gestationMonth}
+              </span>
             </div>
-          )}
-        </div>
+            {month >= 7 && (
+              <div className="mt-2 bg-amber-500/20 border border-amber-400/30 rounded-lg px-3 py-2 text-amber-300 text-xs">
+                {t.lastTrimesterWarning(
+                  month >= 9 ? "2.5" : month >= 8 ? "1.5" : "0.8"
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {isDry && (
+          <div className="bg-blue-500/20 border border-blue-400/30 rounded-xl p-3 text-blue-200 text-sm text-center">
+            <p>💤 {t.dryStatusNote}</p>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">

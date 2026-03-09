@@ -39,6 +39,8 @@ export const translations: Record<Language, Translations> = {
     primiparousSubtitle: "أول ولادة",
     multiparous: "متعددة",
     multiparousSubtitle: "ثاني ولادة فأكثر",
+    youngAnimalNote: "عجل صغير - ليست بقرة بعد",
+    heiferNote: "عجلة ملقحة - قبل أول ولادة",
     housing: "نوع الإيواء",
     stall: "حظيرة",
     stallSubtitle: "داخل المبنى",
@@ -58,6 +60,7 @@ export const translations: Record<Language, Translations> = {
     notPregnant: "(0 = غير حامل)",
     lastTrimesterWarning: (ufl: string) =>
       `⚠️ الثلث الأخير من الحمل — احتياجات حمل مرتفعة (+${ufl} UFL/يوم)`,
+    dryStatusNote: "البقرة جافة - لا يحتاج حمل نشط",
     back: "← رجوع",
 
     // Step 3
@@ -216,6 +219,8 @@ export const translations: Record<Language, Translations> = {
     primiparousSubtitle: "1ère lactation",
     multiparous: "Multipare",
     multiparousSubtitle: "2ème lactation et +",
+    youngAnimalNote: "Jeune veau - pas encore une vache",
+    heiferNote: "Génisse gestante - avant première portée",
     housing: "Type de logement",
     stall: "Stabulation",
     stallSubtitle: "En bâtiment",
@@ -234,6 +239,7 @@ export const translations: Record<Language, Translations> = {
     notPregnant: "(0 = non gestante)",
     lastTrimesterWarning: (ufl: string) =>
       `⚠️ Dernier trimestre — besoins gestation élevés (+${ufl} UFL/j)`,
+    dryStatusNote: "Vache tarie - pas de gestation active",
     back: "← Retour",
 
     step3Title: "Production laitière",
@@ -388,6 +394,8 @@ export const translations: Record<Language, Translations> = {
     primiparousSubtitle: "1st lactation",
     multiparous: "Multiparous",
     multiparousSubtitle: "2nd lactation and above",
+    youngAnimalNote: "Young calf - not a cow yet",
+    heiferNote: "Heifer - before first calving",
     housing: "Housing Type",
     stall: "Stall",
     stallSubtitle: "Indoor housing",
@@ -406,6 +414,7 @@ export const translations: Record<Language, Translations> = {
     notPregnant: "(0 = not pregnant)",
     lastTrimesterWarning: (ufl: string) =>
       `⚠️ Last trimester — high gestation needs (+${ufl} UFL/day)`,
+    dryStatusNote: "Dry cow - no active gestation",
     back: "← Back",
 
     step3Title: "Milk Production",
