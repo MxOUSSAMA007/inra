@@ -27,6 +27,9 @@ The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. I
 - [x] Update tolerance to exact values — ±0.2 UFL, ±50g PDI (instead of 5%)
 - [x] Add difference display — shows gap from target UFL/PDI in results
 - [x] Add README.md — documentation in Arabic/French/English for Maghreb farmers
+- [x] Add DMI capacity calculation — MSI (Matière Sèche Ingestible) with roughage/concentrate split, lactation bonus, gestation penalty
+- [x] Add PDIN/PDIE balance — protein balance analysis with utilization ratio (optimal 0.85-1.0)
+- [x] Add warning system — energy deficit, nitrogen excess, protein imbalance, DMI exceeded alerts with AR/FR/EN translations
 
 ## Current Structure
 
