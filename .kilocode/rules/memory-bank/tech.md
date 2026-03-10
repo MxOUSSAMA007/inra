@@ -141,3 +141,9 @@ bun typecheck      # Run TypeScript type checking
 - None required for base template
 - Add as needed for features
 - Use `.env.local` for local development
+
+
+## Added Domain Modules
+
+- `src/lib/cow-passport.ts`: localStorage-backed digital passport data model for cow identity, genetics, reproduction timeline, treatments, and withdrawal alert calculation.
+- `src/components/DigitalCowPassport.tsx`: client UI dashboard for editing passport data and showing red withdrawal warnings + nutrition hints.
