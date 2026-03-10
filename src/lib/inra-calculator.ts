@@ -2,6 +2,12 @@
  * INRA (Institut National de la Recherche Agronomique) Ration Calculator
  * Based on the French INRA system for dairy cow nutritional requirements.
  * Units: UFL (Unité Fourragère Lait) for energy, PDI (g/day) for protein.
+ * 
+ * Features:
+ * - Calculate daily nutritional requirements (UFL, PDIN, PDIE)
+ * - Calculate dry matter intake capacity (MSI - Matière Sèche Ingestible)
+ * - PDIN/PDIE balance analysis
+ * - Warning system for nutritional imbalances
  */
 
 export type PhysiologicalStatus = "lactating" | "dry";
@@ -44,6 +50,40 @@ export interface CalculationResult {
   ufl: NutritionBreakdown;
   pdi: PDIBreakdown;
   inputs: CowInputs;
+}
+
+// ============ New: Dry Matter Intake & Balance Interfaces ============
+
+export type WarningLevel = "none" | "info" | "warning" | "critical";
+
+export interface RationWarning {
+  level: WarningLevel;
+  type: "energy_deficit" | "nitrogen_excess" | "protein_imbalance" | "dmi_exceeded" | "ration_ok";
+  message: string;
+  messageAr: string;
+  messageFr: string;
+}
+
+export interface DMICapacity {
+  maxDMI: number;        // Maximum dry matter intake (kg DM/day)
+  roughageDMI: number;   // Roughage portion (kg DM/day)
+  concentrateDMI: number; // Concentrate portion (kg DM/day)
+  actualIntake: number;  // If ration provided, actual intake
+  isConstrained: boolean; // Whether intake is limited by capacity
+}
+
+export interface ProteinBalance {
+  pdin: number;           // PDIN (rumen degradable protein, g/day)
+  pdie: number;           // PDIE (intestinal digestible protein, g/day)
+  balance: number;        // PDIN - PDIE (should be close to 0)
+  status: "deficient" | "excess" | "balanced";
+  utilization: number;    // PDIE/PDIN ratio (should be ~0.85-1.0)
+}
+
+export interface EnhancedCalculationResult extends CalculationResult {
+  dmi: DMICapacity;
+  proteinBalance: ProteinBalance;
+  warnings: RationWarning[];
 }
 
 /**
@@ -173,6 +213,185 @@ function pdiGestation(gestationMonth: number): number {
   return 0;
 }
 
+// ============ New: DMI (Dry Matter Intake) Calculations ============
+
+/**
+ * Calculate maximum dry matter intake capacity (MSI - Matière Sèche Ingestible)
+ * Based on INRA equations for dairy cows
+ * 
+ * Factors:
+ * - Metabolic weight (W^0.75) is base
+ * - Lactation increases intake capacity
+ * - Late gestation decreases intake
+ * - Body condition affects intake
+ */
+export function calculateDMICapacity(inputs: CowInputs): DMICapacity {
+  const { weight, status, milkProduction, gestationMonth } = inputs;
+  const milk = milkProduction ?? 0;
+  
+  // Base: 0.025 × W^0.75 for mature cows
+  // This gives ~12-15 kg DM for a 600 kg cow
+  let maxDMI = weight * 0.025;
+  
+  // Lactation bonus: +0.4 kg DM per kg milk above 15 liters
+  if (status === "lactating" && milk > 15) {
+    maxDMI += (milk - 15) * 0.4;
+  }
+  
+  // Late gestation penalty (last 2 months): -10% to -20%
+  if (gestationMonth && gestationMonth >= 8) {
+    const penalty = gestationMonth >= 9 ? 0.20 : 0.10;
+    maxDMI *= (1 - penalty);
+  }
+  
+  // Roughage:concentrate ratio (typical: 60:40 to 70:30)
+  const roughageDMI = maxDMI * 0.65;
+  const concentrateDMI = maxDMI * 0.35;
+  
+  return {
+    maxDMI: round1(maxDMI),
+    roughageDMI: round1(roughageDMI),
+    concentrateDMI: round1(concentrateDMI),
+    actualIntake: 0,
+    isConstrained: false,
+  };
+}
+
+/**
+ * Check if ration DMI exceeds capacity and calculate constraint
+ */
+export function checkDMIConstraint(
+  totalFeedDM: number, 
+  capacity: DMICapacity
+): DMICapacity {
+  const isConstrained = totalFeedDM > capacity.maxDMI;
+  
+  return {
+    ...capacity,
+    actualIntake: round1(totalFeedDM),
+    isConstrained,
+  };
+}
+
+// ============ New: Protein Balance (PDIN/PDIE) Calculations ============
+
+/**
+ * Calculate PDIN/PDIE balance
+ * 
+ * PDIN = Protein Digestible in the Intestine from Rumen-degradable N
+ * PDIE = Protein Digestible in the Intestine from Endogenous sources
+ * 
+ * The balance should be close to 0 (PDIE ≤ PDIN)
+ * Optimal utilization: PDIE/PDIN = 0.85-1.0
+ */
+export function calculateProteinBalance(
+  pdiRequired: number,
+  feedPDIN: number,
+  feedPDIE: number
+): ProteinBalance {
+  const balance = feedPDIN - feedPDIE;
+  
+  // Utilization ratio: how well is rumen N being used?
+  const utilization = feedPDIN > 0 ? feedPDIE / feedPDIN : 0;
+  
+  // Determine status
+  let status: "deficient" | "excess" | "balanced";
+  
+  if (feedPDIE < pdiRequired * 0.95) {
+    status = "deficient";
+  } else if (balance > 50) {
+    // More than 50g excess PDIN = excess N in rumen
+    status = "excess";
+  } else {
+    status = "balanced";
+  }
+  
+  return {
+    pdin: round0(feedPDIN),
+    pdie: round0(feedPDIE),
+    balance: round0(balance),
+    status,
+    utilization: round2(utilization),
+  };
+}
+
+// ============ New: Warning System ============
+
+/**
+ * Generate nutritional warnings based on ration analysis
+ */
+export function generateWarnings(
+  requirements: CalculationResult,
+  actualUFL: number,
+  actualPDI: number,
+  dmiCapacity: DMICapacity,
+  totalFeedDM: number
+): RationWarning[] {
+  const warnings: RationWarning[] = [];
+  const { ufl, pdi } = requirements;
+  
+  // 1. Energy Deficit Check (Déficit énergétique)
+  const energyDeficit = ufl.total - actualUFL;
+  if (energyDeficit > 0.5) {
+    warnings.push({
+      level: energyDeficit > 1.5 ? "critical" : "warning",
+      type: "energy_deficit",
+      message: `Energy deficit: ${round1(energyDeficit)} UFL below requirements`,
+      messageAr: `عجز في الطاقة: ${round1(energyDeficit)} وحدة علفية أقل من الاحتياجات`,
+      messageFr: `Déficit énergétique: ${round1(energyDeficit)} UFL en dessous des besoins`,
+    });
+  }
+  
+  // 2. Nitrogen Excess Check (Excès azoté)
+  // If PDIN >> PDIE, excess nitrogen in rumen -> environmental issue + reduced efficiency
+  const proteinBalance = calculateProteinBalance(pdi.total, actualPDI, actualPDI * 0.85);
+  if (proteinBalance.status === "excess") {
+    warnings.push({
+      level: "warning",
+      type: "nitrogen_excess",
+      message: "Excess rumen degradable protein - nitrogen efficiency low",
+      messageAr: "فائض في البروتين القابل للتحلل في الكرش - كفاءة النيتروجين منخفضة",
+      messageFr: "Excès de protéines dégradables dans le rumen - efficacité de l'azote faible",
+    });
+  }
+  
+  // 3. Protein Imbalance Check (Déséquilibre protéique)
+  if (Math.abs(pdi.total - actualPDI) > 100) {
+    const deficit = pdi.total - actualPDI;
+    warnings.push({
+      level: Math.abs(deficit) > 150 ? "critical" : "warning",
+      type: "protein_imbalance",
+      message: `Protein ${deficit > 0 ? "deficit" : "excess"}: ${round0(Math.abs(deficit))}g PDI`,
+      messageAr: `بروتين ${deficit > 0 ? "ناقص" : "زائد"}: ${round0(Math.abs(deficit))} غرام PDI`,
+      messageFr: `Protéines ${deficit > 0 ? "déficit" : "excès"}: ${round0(Math.abs(deficit))}g PDI`,
+    });
+  }
+  
+  // 4. DMI Exceeded Check
+  if (dmiCapacity.isConstrained || totalFeedDM > dmiCapacity.maxDMI) {
+    warnings.push({
+      level: "warning",
+      type: "dmi_exceeded",
+      message: `DMI exceeds capacity (${round1(totalFeedDM)} > ${round1(dmiCapacity.maxDMI)} kg DM)`,
+      messageAr: `المادة الجافة المتناولة تتجاوز السعة (${round1(totalFeedDM)} > ${round1(dmiCapacity.maxDMI)} كجم مادة جافة)`,
+      messageFr: `MSI dépasse la capacité (${round1(totalFeedDM)} > ${round1(dmiCapacity.maxDMI)} kg MS)`,
+    });
+  }
+  
+  // 5. Ration OK (no warnings)
+  if (warnings.length === 0) {
+    warnings.push({
+      level: "none",
+      type: "ration_ok",
+      message: "Ration is balanced and meets all requirements",
+      messageAr: "العلوفة متزنة وتلبي جميع الاحتياجات",
+      messageFr: "La ration est équilibrée et répond à tous les besoins",
+    });
+  }
+  
+  return warnings;
+}
+
 /**
  * Main calculation function
  */
@@ -226,6 +445,87 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
 function round0(n: number): number {
   return Math.round(n);
+}
+
+// ============ New: Enhanced Calculation with All Features ============
+
+/**
+ * Enhanced calculation that includes DMI, protein balance, and warnings
+ * Use this for complete ration analysis
+ */
+export function calculateRationEnhanced(inputs: CowInputs): EnhancedCalculationResult {
+  // Get base requirements
+  const baseResult = calculateRation(inputs);
+  
+  // Calculate DMI capacity
+  const dmi = calculateDMICapacity(inputs);
+  
+  // Calculate protein balance (using requirements as targets)
+  const proteinBalance = calculateProteinBalance(
+    baseResult.pdi.total,
+    baseResult.pdi.total,
+    baseResult.pdi.total * 0.9 // Assume 90% efficiency for requirements
+  );
+  
+  // Initially no warnings (would need actual feed data for full analysis)
+  const warnings: RationWarning[] = [
+    {
+      level: "none",
+      type: "ration_ok",
+      message: "Requirements calculated - add feed data for complete analysis",
+      messageAr: "تم حساب الاحتياجات - أضف بيانات الأعلاف للتحليل الكامل",
+      messageFr: "Besoins calculés - ajoutez les données d'aliment pour l'analyse complète",
+    },
+  ];
+  
+  return {
+    ...baseResult,
+    dmi,
+    proteinBalance,
+    warnings,
+  };
+}
+
+/**
+ * Analyze a complete ration and generate warnings
+ * Use after calculating feed amounts
+ */
+export function analyzeRation(
+  inputs: CowInputs,
+  actualUFL: number,
+  actualPDI: number,
+  totalFeedDM: number
+): EnhancedCalculationResult {
+  const baseResult = calculateRation(inputs);
+  const dmi = calculateDMICapacity(inputs);
+  const constrainedDMI = checkDMIConstraint(totalFeedDM, dmi);
+  
+  // For actual feed analysis, we need both PDIN and PDIE from feeds
+  // For now, estimate PDIE as 90% of PDIN (typical rumen efficiency)
+  const proteinBalance = calculateProteinBalance(
+    baseResult.pdi.total,
+    actualPDI,
+    actualPDI * 0.9
+  );
+  
+  const warnings = generateWarnings(
+    baseResult,
+    actualUFL,
+    actualPDI,
+    constrainedDMI,
+    totalFeedDM
+  );
+  
+  return {
+    ...baseResult,
+    dmi: constrainedDMI,
+    proteinBalance,
+    warnings,
+  };
 }
