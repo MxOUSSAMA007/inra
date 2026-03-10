@@ -30,6 +30,7 @@ The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. I
 - [x] Add DMI capacity calculation — MSI (Matière Sèche Ingestible) with roughage/concentrate split, lactation bonus, gestation penalty
 - [x] Add PDIN/PDIE balance — protein balance analysis with utilization ratio (optimal 0.85-1.0)
 - [x] Add warning system — energy deficit, nitrogen excess, protein imbalance, DMI exceeded alerts with AR/FR/EN translations
+- [x] Digital Cow Passport — added health/genetic passport UI (identity, lineage, reproduction timeline, treatment withdrawal alerts) with localStorage persistence and nutrition hints linked to gestation/milk drop
 
 ## Current Structure
 
@@ -103,3 +104,5 @@ export async function GET() {
 | Initial | Template created with base setup |
 | 2026-03-07 | INRA Ration Calculator with cow records, Excel export, i18n, and feed ration features |
 | 2026-03-07 | Fix concentrate blending algorithm — weighted average for multiple concentrates |
+
+| 2026-03-10 | Added Digital Cow Passport module (health/genetic records, reproduction auto-dates, withdrawal period alerts, nutrition linkage hints) |
