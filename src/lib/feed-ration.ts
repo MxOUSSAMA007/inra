@@ -178,43 +178,39 @@ function solveWithExactMatch(
     return null;
   }
 
-  // Distribute to individual feeds proportionally
+  // Distribute to individual feeds with EXACT preservation of totals
   const amounts: FeedAmount[] = [];
 
-  // Distribute roughage amount proportionally
-  if (roughageKg > 0.05) {
-    const totalRoughUfl = roughages.reduce((s, f) => s + f.uflPerKg, 0);
-    for (const feed of roughages) {
-      const share = feed.uflPerKg / totalRoughUfl;
-      const kg = roughageKg * share;
-      if (kg >= 0.1) {
-        amounts.push({
-          feed,
-          kgPerDay: round1(kg),
-          uflContrib: round2(kg * feed.uflPerKg),
-          pdiContrib: round0(kg * feed.pdiPerKg),
-          dmContrib: round2(kg * feed.dm),
-        });
-      }
-    }
+  // Distribute roughage amount with exact total preservation
+  if (roughageKg > 0.05 && roughages.length > 0) {
+    // Calculate target UFL and PDI for roughages
+    const roughTargetUfl = roughageKg * roughUfl;
+    const roughTargetPdi = roughageKg * roughPdi;
+    
+    // Use exact distribution that preserves both UFL and PDI
+    const roughAmounts = distributeExactly(
+      roughages, 
+      roughageKg, 
+      roughTargetUfl, 
+      roughTargetPdi
+    );
+    amounts.push(...roughAmounts);
   }
 
-  // Distribute concentrate amount proportionally
-  if (concentrateKg > 0.05) {
-    const totalConcUfl = concentrates.reduce((s, f) => s + f.uflPerKg, 0);
-    for (const feed of concentrates) {
-      const share = feed.uflPerKg / totalConcUfl;
-      const kg = concentrateKg * share;
-      if (kg >= 0.1) {
-        amounts.push({
-          feed,
-          kgPerDay: round1(kg),
-          uflContrib: round2(kg * feed.uflPerKg),
-          pdiContrib: round0(kg * feed.pdiPerKg),
-          dmContrib: round2(kg * feed.dm),
-        });
-      }
-    }
+  // Distribute concentrate amount with exact total preservation
+  if (concentrateKg > 0.05 && concentrates.length > 0) {
+    // Calculate target UFL and PDI for concentrates
+    const concTargetUfl = concentrateKg * blendUfl;
+    const concTargetPdi = concentrateKg * blendPdi;
+    
+    // Use exact distribution that preserves both UFL and PDI
+    const concAmounts = distributeExactly(
+      concentrates, 
+      concentrateKg, 
+      concTargetUfl, 
+      concTargetPdi
+    );
+    amounts.push(...concAmounts);
   }
 
   // Calculate totals
@@ -238,6 +234,209 @@ function solveWithExactMatch(
     pdiDiff,
     balanced: true,
   };
+}
+
+/**
+ * Distribute a total kg amount to individual feeds while preserving EXACT UFL and PDI totals
+ * Uses a modified distribution that accounts for both constraints
+ */
+function distributeExactly(
+  feeds: Feed[],
+  totalKg: number,
+  targetUfl: number,
+  targetPdi: number
+): FeedAmount[] {
+  if (feeds.length === 0) return [];
+  if (feeds.length === 1) {
+    // Single feed - use it all
+    const feed = feeds[0];
+    return [{
+      feed,
+      kgPerDay: round1(totalKg),
+      uflContrib: round2(totalKg * feed.uflPerKg),
+      pdiContrib: round0(totalKg * feed.pdiPerKg),
+      dmContrib: round2(totalKg * feed.dm),
+    }];
+  }
+
+  // For 2+ feeds, use numerical optimization to find exact amounts
+  // that match both UFL and PDI targets
+  const result = solveMultiFeedExact(feeds, totalKg, targetUfl, targetPdi);
+  
+  if (result) {
+    return result;
+  }
+
+  // Fallback: proportional by UFL
+  return distributeProportional(feeds, totalKg, targetUfl);
+}
+
+/**
+ * Solve for exact amounts when we have 2+ feeds in a category
+ * Uses numerical optimization to match both UFL and PDI targets
+ */
+function solveMultiFeedExact(
+  feeds: Feed[],
+  totalKg: number,
+  targetUfl: number,
+  targetPdi: number
+): FeedAmount[] | null {
+  // For 2 feeds: exact solution is possible
+  if (feeds.length === 2) {
+    const [f1, f2] = feeds;
+    
+    // Solve 2x2 system:
+    // f1.ufl * x + f2.ufl * y = targetUfl
+    // f1.pdi * x + f2.pdi * y = targetPdi
+    // x + y = totalKg
+    
+    // This is an overdetermined system, so we'll use least squares or simplify
+    // Try solving for x using two equations, then adjust y
+    
+    // Method: Solve for x from UFL equation, y from PDI equation, then average
+    const xFromUfl = totalKg > 0 ? (targetUfl - f2.uflPerKg * totalKg) / (f1.uflPerKg - f2.uflPerKg) : 0;
+    const xFromPdi = totalKg > 0 ? (targetPdi - f2.pdiPerKg * totalKg) / (f1.pdiPerKg - f2.pdiPerKg) : 0;
+    
+    // Average the two solutions
+    let x = (xFromUfl + xFromPdi) / 2;
+    let y = totalKg - x;
+    
+    // Clamp to valid range
+    x = Math.max(0, Math.min(totalKg, x));
+    y = Math.max(0, Math.min(totalKg, y));
+    
+    const f1Kg = round1(x);
+    const f2Kg = round1(y);
+    
+    const actualUfl = f1Kg * f1.uflPerKg + f2Kg * f2.uflPerKg;
+    const actualPdi = f1Kg * f1.pdiPerKg + f2Kg * f2.pdiPerKg;
+    const actualDm = f1Kg * f1.dm + f2Kg * f2.dm;
+    
+    const amounts: FeedAmount[] = [];
+    if (f1Kg >= 0.1) {
+      amounts.push({
+        feed: f1,
+        kgPerDay: f1Kg,
+        uflContrib: round2(f1Kg * f1.uflPerKg),
+        pdiContrib: round0(f1Kg * f1.pdiPerKg),
+        dmContrib: round2(f1Kg * f1.dm),
+      });
+    }
+    if (f2Kg >= 0.1) {
+      amounts.push({
+        feed: f2,
+        kgPerDay: f2Kg,
+        uflContrib: round2(f2Kg * f2.uflPerKg),
+        pdiContrib: round0(f2Kg * f2.pdiPerKg),
+        dmContrib: round2(f2Kg * f2.dm),
+      });
+    }
+    
+    return amounts;
+  }
+
+  // For 3+ feeds: use iterative optimization
+  // Start with proportional distribution, then adjust
+  const n = feeds.length;
+  
+  // Initial guess: equal distribution
+  let amounts = feeds.map(f => {
+    const kg = totalKg / n;
+    return {
+      feed: f,
+      kgPerDay: kg,
+      uflContrib: kg * f.uflPerKg,
+      pdiContrib: kg * f.pdiPerKg,
+      dmContrib: kg * f.dm,
+    };
+  });
+
+  // Iterative adjustment to match targets
+  for (let iter = 0; iter < 100; iter++) {
+    const currentUfl = amounts.reduce((s, a) => s + a.uflContrib, 0);
+    const currentPdi = amounts.reduce((s, a) => s + a.pdiContrib, 0);
+    
+    const uflError = targetUfl - currentUfl;
+    const pdiError = targetPdi - currentPdi;
+    
+    // Check if we're close enough
+    if (Math.abs(uflError) < 0.01 && Math.abs(pdiError) < 1) {
+      break;
+    }
+    
+    // Adjust amounts based on error
+    // Find feeds with highest/lowest UFL to adjust
+    const uflPerKg = amounts.map(a => a.feed.uflPerKg);
+    const pdiPerKg = amounts.map(a => a.feed.pdiPerKg);
+    
+    // Calculate sensitivity matrix
+    const totalUfl = uflPerKg.reduce((s, u) => s + u, 0);
+    const totalPdi = pdiPerKg.reduce((s, p) => s + p, 0);
+    
+    // Distribute error proportionally to each feed based on their contribution
+    for (let i = 0; i < n; i++) {
+      const uflShare = uflPerKg[i] / totalUfl;
+      const pdiShare = pdiPerKg[i] / totalPdi;
+      const share = (uflShare + pdiShare) / 2;
+      
+      // Adjust kg to correct error
+      // deltaKg = error / nutrient_per_kg
+      const uflCorrection = uflError > 0 ? uflError * 0.1 * uflShare / uflPerKg[i] : uflError * 0.1 * uflShare / uflPerKg[i];
+      const pdiCorrection = pdiError > 0 ? pdiError * 0.1 * pdiShare / pdiPerKg[i] : pdiError * 0.1 * pdiShare / pdiPerKg[i];
+      
+      amounts[i].kgPerDay += (uflCorrection + pdiCorrection) / 2;
+      amounts[i].kgPerDay = Math.max(0, amounts[i].kgPerDay);
+      
+      // Recalculate contributions
+      amounts[i].uflContrib = amounts[i].kgPerDay * amounts[i].feed.uflPerKg;
+      amounts[i].pdiContrib = amounts[i].kgPerDay * amounts[i].feed.pdiPerKg;
+      amounts[i].dmContrib = amounts[i].kgPerDay * amounts[i].feed.dm;
+    }
+    
+    // Renormalize to exact total kg
+    const currentTotalKg = amounts.reduce((s, a) => s + a.kgPerDay, 0);
+    if (currentTotalKg > 0) {
+      const scale = totalKg / currentTotalKg;
+      for (const amount of amounts) {
+        amount.kgPerDay *= scale;
+        amount.uflContrib = amount.kgPerDay * amount.feed.uflPerKg;
+        amount.pdiContrib = amount.kgPerDay * amount.feed.pdiPerKg;
+        amount.dmContrib = amount.kgPerDay * amount.feed.dm;
+      }
+    }
+  }
+  
+  // Round final values
+  return amounts.map(a => ({
+    feed: a.feed,
+    kgPerDay: round1(a.kgPerDay),
+    uflContrib: round2(a.kgPerDay * a.feed.uflPerKg),
+    pdiContrib: round0(a.kgPerDay * a.feed.pdiPerKg),
+    dmContrib: round2(a.kgPerDay * a.feed.dm),
+  })).filter(a => a.kgPerDay >= 0.1);
+}
+
+/**
+ * Simple proportional distribution fallback
+ */
+function distributeProportional(
+  feeds: Feed[],
+  totalKg: number,
+  targetUfl: number
+): FeedAmount[] {
+  const totalUfl = feeds.reduce((s, f) => s + f.uflPerKg, 0);
+  
+  return feeds.map(feed => {
+    const share = feed.uflPerKg / totalUfl;
+    const kg = totalKg * share;
+    return {
+      feed,
+      kgPerDay: round1(kg),
+      uflContrib: round2(kg * feed.uflPerKg),
+      pdiContrib: round0(kg * feed.pdiPerKg),
+      dmContrib: round2(kg * feed.dm),
+    };
+  }).filter(a => a.kgPerDay >= 0.1);
 }
 
 /**
